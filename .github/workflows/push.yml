@@ -16,22 +16,21 @@ jobs:
         with:
           fetch-depth: 0
 
-      # 2. Clone repository B
+      # 2. Clone repository B and remove .git folder
       - name: Clone repository B
         run: |
           git clone --branch main --depth 1 https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/TestSubtree/subtreeC.git repository_database
+          rm -rf repository_database/.git
 
-      # 3. Compare subtree changes and capture details
+      # 3. Compare subtree changes using git diff
       - name: Check subtree changes
         id: check_changes
         run: |
-          if diff -qr --exclude=".git" C repository_database > diff_output.txt; then
-            echo "No changes in subtree."
-            echo "no_changes=true" >> $GITHUB_ENV
-          else
-            echo "Subtree has changes:"
-            cat diff_output.txt
+          git --no-pager diff --exit-code --no-index C repository_database > diff_output.txt || echo "Subtree has changes."
+          if [ -s diff_output.txt ]; then
             echo "no_changes=false" >> $GITHUB_ENV
+          else
+            echo "no_changes=true" >> $GITHUB_ENV
           fi
 
       # 4. Print message and exit if no changes
@@ -44,4 +43,4 @@ jobs:
         if: env.no_changes == 'false'
         run: |
           echo "다음과 같은 상세한 수정사항이 있습니다:"
-          diff -u C repository_database || true
+          git --no-pager diff --no-index C repository_database || true
