@@ -19,16 +19,21 @@ jobs:
       # 2. Clone repository B
       - name: Clone repository B
         run: |
-          git clone --branch main --depth 1 https://x-access-token:${{ secrets.GITHUB_TOKEN }}@git@github.com:TestSubtree/subtreeC.git repository_database
-
+          git clone --branch main --depth 1 https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com:TestSubtree/subtreeC.git repository_database
 
       # 3. Compare subtree changes
       - name: Check subtree changes
         id: check_changes
         run: |
-          git diff --exit-code --subtree=C repository_database || echo "Subtree has changes"
+          git diff --exit-code --subtree=C repository_database || exit 1
 
-      # 4. Print result if there are changes
-      - name: Print result
+      # 4. Print message and exit if no changes
+      - name: No changes in subtree
+        if: steps.check_changes.outcome == 'success'
+        run: echo "수정사항이 없습니다. 워크플로우를 종료합니다."
+        continue-on-error: false # 성공 시 종료
+
+      # 5. Print message if changes exist
+      - name: Subtree has changes
         if: steps.check_changes.outcome == 'failure'
-        run: echo "Subtree directory has changes. Proceeding with further actions."
+        run: echo "수정사항이 있습니다. 후속 작업을 진행합니다."
