@@ -1,0 +1,14 @@
+name: PR Workflow for main
+
+on:
+  pull_request:
+    branches:
+      - main # PR 대상 브랜치가 main일 때만 트리거
+
+jobs:
+  pr_job:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Print message
+        run: echo "이 PR은 main 브랜치와 머지됩니다."
