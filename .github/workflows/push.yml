@@ -19,7 +19,8 @@ jobs:
       # 2. Clone repository B
       - name: Clone repository B
         run: |
-          git clone --branch main --depth 1 https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com:TestSubtree/subtreeC.git repository_database
+          git clone --branch main --depth 1 https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/TestSubtree/subtreeC.git repository_database
+
 
       # 3. Compare subtree changes
       - name: Check subtree changes
