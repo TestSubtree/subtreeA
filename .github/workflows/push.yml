@@ -21,7 +21,7 @@ jobs:
         run: |
           git clone --branch main --depth 1 https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/TestSubtree/subtreeC.git repository_database
 
-      # 3. Compare subtree changes
+      # 3. Compare subtree changes and capture details
       - name: Check subtree changes
         id: check_changes
         run: |
@@ -39,9 +39,9 @@ jobs:
         if: env.no_changes == 'true'
         run: echo "수정사항이 없습니다. 워크플로우를 종료합니다."
 
-      # 5. Show changes if they exist
+      # 5. Show detailed changes if they exist
       - name: Subtree changes details
         if: env.no_changes == 'false'
         run: |
-          echo "다음과 같은 수정사항이 있습니다:"
-          diff -qr --exclude=".git" C repository_database
+          echo "다음과 같은 상세한 수정사항이 있습니다:"
+          diff -u C repository_database || true
