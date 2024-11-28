@@ -25,15 +25,21 @@ jobs:
       - name: Check subtree changes
         id: check_changes
         run: |
-          diff -qr C repository_database || exit 1
+          if diff -qr --exclude=".git" C repository_database; then
+            echo "No changes in subtree."
+            echo "no_changes=true" >> $GITHUB_ENV
+          else
+            echo "Subtree has changes."
+            echo "no_changes=false" >> $GITHUB_ENV
+            exit 0
+          fi
 
       # 4. Print message and exit if no changes
       - name: No changes in subtree
-        if: steps.check_changes.outcome == 'success'
+        if: env.no_changes == 'true'
         run: echo "수정사항이 없습니다. 워크플로우를 종료합니다."
-        continue-on-error: false # 성공 시 종료
 
       # 5. Print message if changes exist
       - name: Subtree has changes
-        if: steps.check_changes.outcome == 'failure'
+        if: env.no_changes == 'false'
         run: echo "수정사항이 있습니다. 후속 작업을 진행합니다."
