@@ -6,9 +6,29 @@ on:
       - main # PR 대상 브랜치가 main일 때만 트리거
 
 jobs:
-  pr_job:
+  check_subtree_changes:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Print message
-        run: echo "이 PR은 main 브랜치와 머지됩니다."
+      # 1. Checkout repository A
+      - name: Checkout repository A
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      # 2. Clone repository B
+      - name: Clone repository B
+        run: |
+          git clone --branch main --depth 1 https://x-access-token:${{ secrets.GITHUB_TOKEN }}@git@github.com:TestSubtree/subtreeC.git repository_database
+
+
+      # 3. Compare subtree changes
+      - name: Check subtree changes
+        id: check_changes
+        run: |
+          git diff --exit-code --subtree=C repository_database || echo "Subtree has changes"
+
+      # 4. Print result if there are changes
+      - name: Print result
+        if: steps.check_changes.outcome == 'failure'
+        run: echo "Subtree directory has changes. Proceeding with further actions."
