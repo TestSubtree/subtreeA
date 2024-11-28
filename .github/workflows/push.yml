@@ -21,12 +21,11 @@ jobs:
         run: |
           git clone --branch main --depth 1 https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/TestSubtree/subtreeC.git repository_database
 
-
       # 3. Compare subtree changes
       - name: Check subtree changes
         id: check_changes
         run: |
-          git diff --exit-code --subtree=C repository_database || exit 1
+          diff -qr C repository_database || exit 1
 
       # 4. Print message and exit if no changes
       - name: No changes in subtree
