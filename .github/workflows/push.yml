@@ -120,13 +120,24 @@ jobs:
           PR_BRANCH="${{ github.head_ref }}"
           BASE_BRANCH="main"
           
-          # 브랜치 푸시 후 확인
-          echo "PR_BRANCH: $PR_BRANCH"
-          echo "BASE_BRANCH: $BASE_BRANCH"
+          # 현재 레포지토리의 PR URL 생성
+          REPO="${{ github.repository }}"
+          PR_URL="https://github.com/${REPO}/pull/${{ github.event.pull_request.number }}"
           
           # PR 생성 요청
-          curl -X POST -H "Authorization: token ${{ secrets.TT }}" \
+          RESPONSE=$(curl -X POST -H "Authorization: token ${{ secrets.TT }}" \
                -H "Accept: application/vnd.github.v3+json" \
                https://api.github.com/repos/TestSubtree/subtreeC/pulls \
-               -d "{ \"title\": \"Subtree update from $PR_BRANCH\", \"head\": \"$PR_BRANCH\", \"base\": \"$BASE_BRANCH\", \"body\": \"This pull request contains subtree changes merged into the main branch.\" }"
+               -d "{ \"title\": \"Subtree update from $PR_BRANCH\", \"head\": \"$PR_BRANCH\", \"base\": \"$BASE_BRANCH\", \"body\": \"This pull request contains subtree changes merged into the main branch. Original PR: $PR_URL\" }")
+          
+          # PR 생성 결과 상태 코드 확인
+          STATUS_CODE=$(echo "$RESPONSE" | jq -r '.status_code // empty')
+
+          # 실패 상태 코드가 있으면 워크플로우 실패
+          if [[ "$STATUS_CODE" != "201" ]]; then
+            echo "Error: Failed to create PR. Status Code: $STATUS_CODE"
+            exit 1
+          else
+            echo "Pull request successfully created!"
+          fi
         shell: bash
