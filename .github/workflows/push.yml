@@ -54,6 +54,19 @@ jobs:
           fi
         shell: bash
 
+      # 7. Print message and exit if no changes
+      - name: No changes in subtree
+        if: env.no_changes == 'true'
+        run: echo "수정사항이 없습니다. 워크플로우를 종료합니다."
+
+      # 8. Show detailed changes if they exist
+      - name: Subtree changes details
+        if: env.no_changes == 'false'
+        run: |
+          echo "다음과 같은 상세한 수정사항이 있습니다:"
+          git --no-pager diff --no-index C repository_database || echo "Error: Failed to display subtree changes."
+        shell: bash
+
       # 6. Check for Merge Conflicts before pushing
       - name: Check for Merge Conflicts
         if: env.no_changes == 'false'
@@ -74,19 +87,6 @@ jobs:
           else
             echo "No merge conflicts detected."
           fi
-        shell: bash
-
-      # 7. Print message and exit if no changes
-      - name: No changes in subtree
-        if: env.no_changes == 'true'
-        run: echo "수정사항이 없습니다. 워크플로우를 종료합니다."
-
-      # 8. Show detailed changes if they exist
-      - name: Subtree changes details
-        if: env.no_changes == 'false'
-        run: |
-          echo "다음과 같은 상세한 수정사항이 있습니다:"
-          git --no-pager diff --no-index C repository_database || echo "Error: Failed to display subtree changes."
         shell: bash
 
       # 9. Push changes to subtreeC if changes exist
