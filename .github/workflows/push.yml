@@ -71,21 +71,14 @@ jobs:
       - name: Check for Merge Conflicts
         if: env.no_changes == 'false'
         run: |
-          echo "Checking for merge conflicts..."
-          # 1. 패치 파일 생성: 메인 리포지토리의 C 디렉토리와 repository_database의 내용 간의 차이를 패치 파일로 저장
-          git diff --no-index C/ repository_database/ > changes.patch || { echo "Error: Failed to generate patch."; exit 1; }
-          
-          # 2. 서브트리 리포지토리 클론 (충돌 확인용)
-          git clone --branch main --depth 1 https://x-access-token:${{ secrets.TT }}@github.com/TestSubtree/subtreeC.git tmp_subtree || { echo "Error: Failed to clone repository B for conflict check."; exit 1; }
-          
-          # 3. 패치 적용 시도
-          git apply --check ../changes.patch
-          if [ $? -ne 0 ]; then
-            echo "Merge conflicts detected."
-            exit 1
-          else
-            echo "No merge conflicts detected."
-          fi
+          echo "병합 충돌을 확인하는 중..."
+          # Attempt to merge temp_subtree_branch into subtreeC/main in a dry run
+          git subtree split --prefix=C -b temp_subtree_branch
+          git fetch subtreeC main
+          git merge --no-commit --no-ff temp_subtree_branch || { echo "Merge conflicts detected."; exit 1; }
+          echo "No merge conflicts detected."
+          # Delete the temporary branch
+          git branch -D temp_subtree_branch
         shell: bash
 
       # 9. Push changes to subtreeC if changes exist
