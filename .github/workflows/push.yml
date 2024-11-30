@@ -20,11 +20,25 @@ jobs:
           fetch-depth: 0
         # 에러 발생 시 워크플로우 실패 (기본 동작)
         continue-on-error: false
-
-      - name: Output part of SUBTREECTOKEN for debug
+        
+      # 2. Verify Organization Token Length
+      - name: Verify Organization Token Length
         run: |
-          echo "Checking if SUBTREECTOKEN is properly referenced..."
-          echo "Token starts with: ${SUBTREECTOKEN:0:4}****"
+          TOKEN_LENGTH=${#SUBTREECTOKEN}
+          echo "Organization Token length is $TOKEN_LENGTH characters."
+        env:
+          SUBTREECTOKEN: ${{ secrets.SUBTREECTOKEN }}
+
+      # 3. Verify PAT Token Validity using curl
+      - name: Verify PAT Token Validity
+        run: |
+          response=$(curl -s -o /dev/null -w "%{http_code}" -H "Authorization: token $SUBTREECTOKEN" https://api.github.com/user)
+          if [ "$response" -eq 200 ]; then
+            echo "PAT is valid."
+          else
+            echo "PAT is invalid or has insufficient permissions."
+            exit 1
+          fi
         env:
           SUBTREECTOKEN: ${{ secrets.SUBTREECTOKEN }}
 
