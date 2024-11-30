@@ -24,7 +24,7 @@ jobs:
           TOKEN_LENGTH=${#SUBTREECTOKEN}
           echo "Organization Token length is $TOKEN_LENGTH characters."
         env:
-          SUBTREECTOKEN: ${{ secrets.SUBTREECTOKEN }}
+          SUBTREECTOKEN: ${{ secrets.TT }}
 
       # 3. Remove GitHub Actions의 추가 헤더 설정
       - name: Remove GitHub Actions Extraheader
@@ -36,7 +36,7 @@ jobs:
       - name: Clone repository B (subtreeC)
         run: |
           echo "Cloning repository B (subtreeC)..."
-          git clone --branch main --depth 1 https://x-access-token:${{ secrets.SUBTREECTOKEN }}@github.com/TestSubtree/subtreeC.git repository_database || { echo "Error: Failed to clone repository B."; exit 1; }
+          git clone --branch main --depth 1 https://x-access-token:${{ secrets.TT }}@github.com/TestSubtree/subtreeC.git repository_database || { echo "Error: Failed to clone repository B."; exit 1; }
 
       # 5. Remove .git folder from repository B
       - name: Remove .git folder from repository B
@@ -88,7 +88,7 @@ jobs:
           echo "Current branch: $CURRENT_BRANCH"
 
           # 서브트리 리포지토리에 원격 추가
-          git remote add subtreeC https://x-access-token:${{ secrets.SUBTREECTOKEN }}@github.com/TestSubtree/subtreeC.git
+          git remote add subtreeC https://x-access-token:${{ secrets.TT }}@github.com/TestSubtree/subtreeC.git
 
           # 현재 브랜치로 푸시
           git subtree push --prefix=C subtreeC "$CURRENT_BRANCH" || { echo "Error: Failed to push changes to subtreeC."; exit 1; }
