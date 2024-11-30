@@ -130,4 +130,6 @@ jobs:
                https://api.github.com/repos/TestSubtree/subtreeC/pulls \
                -d "{ \"title\": \"Subtree update from $PR_BRANCH\", \"head\": \"$PR_BRANCH\", \"base\": \"$BASE_BRANCH\", \"body\": \"This pull request contains subtree changes merged into the main branch. Original PR: $PR_URL\" }" \
                -w "%{http_code}" -s)
+
+          echo RESPONSE
         shell: bash
