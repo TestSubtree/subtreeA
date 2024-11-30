@@ -95,7 +95,7 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
           # 새 브랜치 이름을 고유하게 생성
-          CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+          CURRENT_BRANCH="${{ github.head_ref }}"
           echo "Current branch: $CURRENT_BRANCH"
 
           # 새로운 브랜치 생성 및 체크아웃
@@ -117,7 +117,7 @@ jobs:
         if: env.no_changes == 'false'
         run: |
           echo "Creating a Pull Request in subtreeC..."
-          PR_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+          PR_BRANCH="${{ github.head_ref }}"
           BASE_BRANCH="main"
           
           # 브랜치 푸시 후 확인
