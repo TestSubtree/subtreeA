@@ -26,7 +26,7 @@ jobs:
           TOKEN_LENGTH=${#SUBTREECTOKEN}
           echo "Organization Token length is $TOKEN_LENGTH characters."
         env:
-          SUBTREECTOKEN: ${{ secrets.SUBTREECTOKEN }}
+          SUBTREECTOKEN: ${{ secrets.TT }}
 
       # 2. Clone repository B and remove .git folder
       - name: Clone repository B
