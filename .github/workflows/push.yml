@@ -105,14 +105,15 @@ jobs:
           git subtree push --prefix=C subtreeC "$CURRENT_BRANCH" || { echo "Error: Failed to push changes to subtreeC."; exit 1; }
         shell: bash
 
-      # 10. Create Pull Request to main branch if push is successful
-      - name: Create Pull Request
+      # 10. Create Pull Request in subtreeC repository if push is successful
+      - name: Create Pull Request in subtreeC
         if: env.no_changes == 'false'
-        uses: peter-evans/create-pull-request@v5
-        with:
-          token: ${{ secrets.TT }}
-          commit-message: "Subtree update from $CURRENT_BRANCH"
-          branch: $CURRENT_BRANCH
-          title: "Subtree update from $CURRENT_BRANCH"
-          body: "This pull request contains subtree changes merged into the main branch."
-          base: main
+        run: |
+          echo "Creating a Pull Request in subtreeC..."
+          PR_BRANCH="$CURRENT_BRANCH"
+          BASE_BRANCH="main"
+          curl -X POST -H "Authorization: token ${{ secrets.TT }}" \
+               -H "Accept: application/vnd.github.v3+json" \
+               https://api.github.com/repos/TestSubtree/subtreeC/pulls \
+               -d "{ \"title\": \"Subtree update from $PR_BRANCH\", \"head\": \"$PR_BRANCH\", \"base\": \"$BASE_BRANCH\", \"body\": \"This pull request contains subtree changes merged into the main branch.\" }"
+        shell: bash
