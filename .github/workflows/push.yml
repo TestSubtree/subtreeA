@@ -18,33 +18,25 @@ jobs:
           fetch-depth: 0
         continue-on-error: false
 
-      # 2. Verify Organization Token Length
-      - name: Verify Organization Token Length
-        run: |
-          TOKEN_LENGTH=${#SUBTREECTOKEN}
-          echo "Organization Token length is $TOKEN_LENGTH characters."
-        env:
-          SUBTREECTOKEN: ${{ secrets.TT }}
-
-      # 3. Remove GitHub Actions의 추가 헤더 설정
+      # 2. Remove GitHub Actions Extraheader
       - name: Remove GitHub Actions Extraheader
         run: |
           git config --unset-all http.https://github.com/.extraheader
         shell: bash
 
-      # 4. Clone repository B (subtreeC) using PAT
+      # 3. Clone repository B (subtreeC) using PAT
       - name: Clone repository B (subtreeC)
         run: |
           echo "Cloning repository B (subtreeC)..."
           git clone --branch main --depth 1 https://x-access-token:${{ secrets.TT }}@github.com/TestSubtree/subtreeC.git repository_database || { echo "Error: Failed to clone repository B."; exit 1; }
 
-      # 5. Remove .git folder from repository B
+      # 4. Remove .git folder from repository B
       - name: Remove .git folder from repository B
         run: |
           echo "Removing .git folder from repository B..."
           rm -rf repository_database/.git || { echo "Error: Failed to remove .git folder from repository B."; exit 1; }
 
-      # 6. Compare subtree changes using git diff with enhanced error handling
+      # 5. Compare subtree changes using git diff with enhanced error handling
       - name: Check subtree changes
         id: check_changes
         run: |
@@ -59,6 +51,28 @@ jobs:
           else
             echo "Error: git diff command failed with exit code $exit_code"
             exit 1
+          fi
+        shell: bash
+
+      # 6. Check for Merge Conflicts before pushing
+      - name: Check for Merge Conflicts
+        if: env.no_changes == 'false'
+        run: |
+          echo "Checking for merge conflicts..."
+          # 패치 파일 생성: 메인 리포지토리의 C 디렉토리와 repository_database의 C 디렉토리 간의 차이를 패치 파일로 저장
+          git diff --no-index C repository_database/C > changes.patch || { echo "Error: Failed to generate patch."; exit 1; }
+          
+          # 서브트리 리포지토리 클론 (충돌 확인용)
+          git clone --branch main --depth 1 https://x-access-token:${{ secrets.TT }}@github.com/TestSubtree/subtreeC.git tmp_subtree || { echo "Error: Failed to clone repository B for conflict check."; exit 1; }
+          
+          # 패치 적용 시도
+          cd tmp_subtree
+          git apply --check ../changes.patch
+          if [ $? -ne 0 ]; then
+            echo "Merge conflicts detected."
+            exit 1
+          else
+            echo "No merge conflicts detected."
           fi
         shell: bash
 
