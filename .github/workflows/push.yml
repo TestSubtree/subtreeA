@@ -55,9 +55,8 @@ jobs:
       - name: Subtree changes details
         if: env.no_changes == 'false'
         run: |
-          set -e
           echo "다음과 같은 상세한 수정사항이 있습니다:"
-          git --no-pager diff --no-index C repository_database || { echo "Error: Failed to display subtree changes."; exit 1; }
+          git --no-pager diff --no-index C repository_database || echo "Error: Failed to display subtree changes."
         shell: bash
 
       # 6. Push changes to subtreeC if changes exist
