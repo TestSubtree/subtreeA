@@ -54,6 +54,15 @@ jobs:
           fi
         shell: bash
 
+      # 추가: 디렉토리 구조 확인
+      - name: List directories for debugging
+        run: |
+          echo "Listing main repository 'C' directory:"
+          ls -la C/
+          echo "Listing 'repository_database' directory:"
+          ls -la repository_database/
+        shell: bash
+
       # 6. Check for Merge Conflicts before pushing
       - name: Check for Merge Conflicts
         if: env.no_changes == 'false'
