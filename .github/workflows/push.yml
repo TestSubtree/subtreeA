@@ -4,11 +4,132 @@ on:
   pull_request:
     branches:
       - main # PR 대상 브랜치가 main일 때만 트리거
+  workflow_dispatch: # 수동으로 워크플로우를 실행할 수 있도록 설정
 
 jobs:
-  pr_job:
+  check_subtree_changes:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Print message
-        run: echo "이 PR은 main 브랜치와 머지됩니다."
+      # 1. Checkout repository A
+      - name: Checkout repository A
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+        continue-on-error: false
+
+      # 2. Remove GitHub Actions Extraheader
+      - name: Remove GitHub Actions Extraheader
+        run: |
+          git config --unset-all http.https://github.com/.extraheader
+        shell: bash
+
+      # 3. Clone repository B (subtreeC) using PAT
+      - name: Clone repository B (subtreeC)
+        run: |
+          echo "Cloning repository B (subtreeC)..."
+          git clone --branch main --depth 1 https://x-access-token:${{ secrets.TT }}@github.com/TestSubtree/subtreeC.git repository_database || { echo "Error: Failed to clone repository B."; exit 1; }
+
+      # 4. Remove .git folder from repository B
+      - name: Remove .git folder from repository B
+        run: |
+          echo "Removing .git folder from repository B..."
+          rm -rf repository_database/.git || { echo "Error: Failed to remove .git folder from repository B."; exit 1; }
+
+      # 5. Compare subtree changes using git diff with enhanced error handling
+      - name: Check subtree changes
+        id: check_changes
+        run: |
+          echo "Checking for subtree changes..."
+          set +e
+          git --no-pager diff --exit-code --no-index C/ repository_database/ > diff_output.txt
+          exit_code=$?
+          if [ $exit_code -eq 0 ]; then
+            echo "no_changes=true" >> $GITHUB_ENV
+          elif [ $exit_code -eq 1 ]; then
+            echo "no_changes=false" >> $GITHUB_ENV
+          else
+            echo "Error: git diff command failed with exit code $exit_code"
+            exit 1
+          fi
+        shell: bash
+
+      # 6. Print message and exit if no changes
+      - name: No changes in subtree
+        if: env.no_changes == 'true'
+        run: echo "수정사항이 없습니다. 워크플로우를 종료합니다."
+
+      # 7. Show detailed changes if they exist
+      - name: Subtree changes details
+        if: env.no_changes == 'false'
+        run: |
+          echo "다음과 같은 상세한 수정사항이 있습니다:"
+          git --no-pager diff --no-index C/ repository_database/ || echo "Error: Failed to display subtree changes."
+        shell: bash
+
+      # 8. Check for Merge Conflicts before pushing
+      - name: Check for Merge Conflicts
+        if: env.no_changes == 'false'
+        run: |
+          echo "병합 충돌을 확인하는 중..."
+          # 서브트리 분할
+          git subtree split --prefix=C -b temp_subtree_branch
+
+          # subtreeC의 main 브랜치를 직접 URL로 fetch하여 temp_subtreeC_main 브랜치로 저장
+          git fetch https://x-access-token:${{ secrets.TT }}@github.com/TestSubtree/subtreeC.git main:temp_subtreeC_main
+
+          # 병합 시도 (dry run)
+          git merge --no-commit --no-ff temp_subtreeC_main || { echo "Merge conflicts detected."; exit 1; }
+          echo "No merge conflicts detected."
+
+          # 임시 브랜치 삭제
+          git branch -D temp_subtree_branch temp_subtreeC_main
+        shell: bash
+
+       # 9. Push changes to subtreeC if changes exist
+      - name: Push changes to subtreeC
+        if: env.no_changes == 'false'
+        run: |
+          echo "Pushing changes to subtreeC..."
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # 새 브랜치 이름을 고유하게 생성
+          CURRENT_BRANCH="${{ github.head_ref }}"
+          echo "Current branch: $CURRENT_BRANCH"
+
+          # 새로운 브랜치 생성 및 체크아웃
+          git checkout -b "$CURRENT_BRANCH"
+
+          # 서브트리 리포지토리에 원격 추가
+          git remote add subtreeC https://x-access-token:${{ secrets.TT }}@github.com/TestSubtree/subtreeC.git
+
+          # 변경사항 푸시
+          git subtree push --prefix=C subtreeC "$CURRENT_BRANCH" || { echo "Error: Failed to push changes to subtreeC."; exit 1; }
+
+          # 푸시 후 브랜치 확인
+          git branch -a # 모든 브랜치 확인
+          git remote show subtreeC # 원격 브랜치 확인
+        shell: bash
+
+            # 10. Create Pull Request in subtreeC repository if push is successful
+      - name: Create Pull Request in subtreeC
+        if: env.no_changes == 'false'
+        run: |
+          echo "Creating a Pull Request in subtreeC..."
+          PR_BRANCH="${{ github.head_ref }}"
+          BASE_BRANCH="main"
+          
+          # 현재 레포지토리의 PR URL 생성
+          REPO="${{ github.repository }}"
+          PR_URL="https://github.com/${REPO}/pull/${{ github.event.pull_request.number }}"
+          
+          # PR 생성 요청
+          RESPONSE=$(curl -X POST -H "Authorization: token ${{ secrets.TT }}" \
+               -H "Accept: application/vnd.github.v3+json" \
+               https://api.github.com/repos/TestSubtree/subtreeC/pulls \
+               -d "{ \"title\": \"Subtree update from $PR_BRANCH\", \"head\": \"$PR_BRANCH\", \"base\": \"$BASE_BRANCH\", \"body\": \"This pull request contains subtree changes merged into the main branch. Original PR: $PR_URL\" }" \
+               -w "%{http_code}" -s)
+
+          echo "Response: $RESPONSE"
+        shell: bash
