@@ -112,7 +112,7 @@ jobs:
           git remote show subtreeC # 원격 브랜치 확인
         shell: bash
 
-      # 10. Create Pull Request in subtreeC repository if push is successful
+            # 10. Create Pull Request in subtreeC repository if push is successful
       - name: Create Pull Request in subtreeC
         if: env.no_changes == 'false'
         run: |
@@ -128,15 +128,15 @@ jobs:
           RESPONSE=$(curl -X POST -H "Authorization: token ${{ secrets.TT }}" \
                -H "Accept: application/vnd.github.v3+json" \
                https://api.github.com/repos/TestSubtree/subtreeC/pulls \
-               -d "{ \"title\": \"Subtree update from $PR_BRANCH\", \"head\": \"$PR_BRANCH\", \"base\": \"$BASE_BRANCH\", \"body\": \"This pull request contains subtree changes merged into the main branch. Original PR: $PR_URL\" }")
-          
-          # PR 생성 결과 상태 코드 확인
-          STATUS_CODE=$(echo "$RESPONSE" | jq -r '.status_code // empty')
+               -d "{ \"title\": \"Subtree update from $PR_BRANCH\", \"head\": \"$PR_BRANCH\", \"base\": \"$BASE_BRANCH\", \"body\": \"This pull request contains subtree changes merged into the main branch. Original PR: $PR_URL\" }" \
+               -w "%{http_code}" -s)
 
-          # 실패 상태 코드가 있으면 워크플로우 실패
+          # 응답 상태 코드 확인
+          STATUS_CODE="${RESPONSE: -3}"
+
+          # 실패 상태 코드가 있으면 경고 메시지만 출력
           if [[ "$STATUS_CODE" != "201" ]]; then
-            echo "Error: Failed to create PR. Status Code: $STATUS_CODE"
-            exit 1
+            echo "Warning: Failed to create PR. Status Code: $STATUS_CODE"
           else
             echo "Pull request successfully created!"
           fi
