@@ -86,7 +86,7 @@ jobs:
           git branch -D temp_subtree_branch temp_subtreeC_main
         shell: bash
 
-            # 9. Push changes to subtreeC if changes exist
+       # 9. Push changes to subtreeC if changes exist
       - name: Push changes to subtreeC
         if: env.no_changes == 'false'
         run: |
@@ -94,11 +94,11 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          # 브랜치 이름을 설정합니다.
-          CURRENT_BRANCH="update-from-subtree-$(date +%s)"
+          # 새 브랜치 이름을 고유하게 생성
+          CURRENT_BRANCH="update-from-subtree-$(date +%Y%m%d%H%M%S)"
           echo "Current branch: $CURRENT_BRANCH"
 
-          # 새로운 브랜치 생성
+          # 새로운 브랜치 생성 및 체크아웃
           git checkout -b "$CURRENT_BRANCH"
 
           # 서브트리 리포지토리에 원격 추가
@@ -106,6 +106,10 @@ jobs:
 
           # 변경사항 푸시
           git subtree push --prefix=C subtreeC "$CURRENT_BRANCH" || { echo "Error: Failed to push changes to subtreeC."; exit 1; }
+
+          # 푸시 후 브랜치 확인
+          git branch -a # 모든 브랜치 확인
+          git remote show subtreeC # 원격 브랜치 확인
         shell: bash
 
       # 10. Create Pull Request in subtreeC repository if push is successful
@@ -115,6 +119,12 @@ jobs:
           echo "Creating a Pull Request in subtreeC..."
           PR_BRANCH="$CURRENT_BRANCH"
           BASE_BRANCH="main"
+          
+          # 브랜치 푸시 후 확인
+          echo "PR_BRANCH: $PR_BRANCH"
+          echo "BASE_BRANCH: $BASE_BRANCH"
+          
+          # PR 생성 요청
           curl -X POST -H "Authorization: token ${{ secrets.TT }}" \
                -H "Accept: application/vnd.github.v3+json" \
                https://api.github.com/repos/TestSubtree/subtreeC/pulls \
