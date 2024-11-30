@@ -1,12 +1,10 @@
 name: PR Workflow for main
 
-permissions:
-  contents: write
-
 on:
   pull_request:
     branches:
       - main # PR 대상 브랜치가 main일 때만 트리거
+  workflow_dispatch: # 수동으로 워크플로우를 실행할 수 있도록 설정
 
 jobs:
   check_subtree_changes:
@@ -18,27 +16,35 @@ jobs:
         uses: actions/checkout@v3
         with:
           fetch-depth: 0
-        # 에러 발생 시 워크플로우 실패 (기본 동작)
         continue-on-error: false
 
-      - name: Check Organization Token Length
+      # 2. Verify Organization Token Length
+      - name: Verify Organization Token Length
         run: |
           TOKEN_LENGTH=${#SUBTREECTOKEN}
           echo "Organization Token length is $TOKEN_LENGTH characters."
         env:
-          SUBTREECTOKEN: ${{ secrets.TT }}
+          SUBTREECTOKEN: ${{ secrets.SUBTREECTOKEN }}
 
-      # 2. Clone repository B and remove .git folder
-      - name: Clone repository B
+      # 3. Remove GitHub Actions의 추가 헤더 설정
+      - name: Remove GitHub Actions Extraheader
         run: |
-          set -e
-          echo "Cloning repository B..."
-          git clone --branch main --depth 1 https://x-access-token:${{ secrets.TT  }}@github.com/TestSubtree/subtreeC.git repository_database || { echo "Error: Failed to clone repository B."; exit 1; }
-          echo "Removing .git folder from repository B..."
-          rm -rf repository_database/.git || { echo "Error: Failed to remove .git folder from repository B."; exit 1; }
+          git config --unset-all http.https://github.com/.extraheader
         shell: bash
 
-      # 3. Compare subtree changes using git diff with enhanced error handling
+      # 4. Clone repository B (subtreeC) using PAT
+      - name: Clone repository B (subtreeC)
+        run: |
+          echo "Cloning repository B (subtreeC)..."
+          git clone --branch main --depth 1 https://x-access-token:${{ secrets.SUBTREECTOKEN }}@github.com/TestSubtree/subtreeC.git repository_database || { echo "Error: Failed to clone repository B."; exit 1; }
+
+      # 5. Remove .git folder from repository B
+      - name: Remove .git folder from repository B
+        run: |
+          echo "Removing .git folder from repository B..."
+          rm -rf repository_database/.git || { echo "Error: Failed to remove .git folder from repository B."; exit 1; }
+
+      # 6. Compare subtree changes using git diff with enhanced error handling
       - name: Check subtree changes
         id: check_changes
         run: |
@@ -56,12 +62,12 @@ jobs:
           fi
         shell: bash
 
-      # 4. Print message and exit if no changes
+      # 7. Print message and exit if no changes
       - name: No changes in subtree
         if: env.no_changes == 'true'
         run: echo "수정사항이 없습니다. 워크플로우를 종료합니다."
 
-      # 5. Show detailed changes if they exist
+      # 8. Show detailed changes if they exist
       - name: Subtree changes details
         if: env.no_changes == 'false'
         run: |
@@ -69,21 +75,21 @@ jobs:
           git --no-pager diff --no-index C repository_database || echo "Error: Failed to display subtree changes."
         shell: bash
 
-      # 6. Push changes to subtreeC if changes exist
+      # 9. Push changes to subtreeC if changes exist
       - name: Push changes to subtreeC
         if: env.no_changes == 'false'
         run: |
           echo "Pushing changes to subtreeC..."
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          
+
           # 현재 PR의 헤드 브랜치 이름을 가져옵니다.
           CURRENT_BRANCH="${{ github.head_ref }}"
           echo "Current branch: $CURRENT_BRANCH"
 
           # 서브트리 리포지토리에 원격 추가
-          git remote add subtreeC https://x-access-token:${{ secrets.TT  }}@github.com/TestSubtree/subtreeC.git
-          
+          git remote add subtreeC https://x-access-token:${{ secrets.SUBTREECTOKEN }}@github.com/TestSubtree/subtreeC.git
+
           # 현재 브랜치로 푸시
           git subtree push --prefix=C subtreeC "$CURRENT_BRANCH" || { echo "Error: Failed to push changes to subtreeC."; exit 1; }
         shell: bash
