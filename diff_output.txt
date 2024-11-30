@@ -1,0 +1,14 @@
+diff --git a/C/c b/repository_database/c
+index 77306dc..b69275c 100644
+--- a/C/c
++++ b/repository_database/c
+@@ -4,6 +4,4 @@
+ 
+ 이 글은 레파지토리 a글과 동시에 수정한 글 입니다.
+ 
+-이 글은 레파지토리 c에서 수정한 내용입니다.
+-
+-pr 테스트입니다.
+\ No newline at end of file
++이 글은 레파지토리 c에서 수정한 내용입니다.
+\ No newline at end of file
