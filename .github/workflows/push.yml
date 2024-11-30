@@ -54,22 +54,13 @@ jobs:
           fi
         shell: bash
 
-      # 추가: 디렉토리 구조 확인
-      - name: List directories for debugging
-        run: |
-          echo "Listing main repository 'C' directory:"
-          ls -la C/
-          echo "Listing 'repository_database' directory:"
-          ls -la repository_database/
-        shell: bash
-
       # 6. Check for Merge Conflicts before pushing
       - name: Check for Merge Conflicts
         if: env.no_changes == 'false'
         run: |
           echo "Checking for merge conflicts..."
           # 패치 파일 생성: 메인 리포지토리의 C 디렉토리와 repository_database의 C 디렉토리 간의 차이를 패치 파일로 저장
-          git diff --no-index C repository_database/C > changes.patch || { echo "Error: Failed to generate patch."; exit 1; }
+          git diff --no-index C repository_database > changes.patch || { echo "Error: Failed to generate patch."; exit 1; }
           
           # 서브트리 리포지토리 클론 (충돌 확인용)
           git clone --branch main --depth 1 https://x-access-token:${{ secrets.TT }}@github.com/TestSubtree/subtreeC.git tmp_subtree || { echo "Error: Failed to clone repository B for conflict check."; exit 1; }
