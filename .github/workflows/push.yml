@@ -42,7 +42,7 @@ jobs:
         run: |
           echo "Checking for subtree changes..."
           set +e
-          git --no-pager diff --exit-code --no-index C repository_database > diff_output.txt
+          git --no-pager diff --exit-code --no-index C/ repository_database/ > diff_output.txt
           exit_code=$?
           if [ $exit_code -eq 0 ]; then
             echo "no_changes=true" >> $GITHUB_ENV
@@ -54,32 +54,38 @@ jobs:
           fi
         shell: bash
 
-      # 7. Print message and exit if no changes
+      # 6. Print message and exit if no changes
       - name: No changes in subtree
         if: env.no_changes == 'true'
         run: echo "수정사항이 없습니다. 워크플로우를 종료합니다."
 
-      # 8. Show detailed changes if they exist
+      # 7. Show detailed changes if they exist
       - name: Subtree changes details
         if: env.no_changes == 'false'
         run: |
           echo "다음과 같은 상세한 수정사항이 있습니다:"
-          git --no-pager diff --no-index C repository_database || echo "Error: Failed to display subtree changes."
+          git --no-pager diff --no-index C/ repository_database/ || echo "Error: Failed to display subtree changes."
         shell: bash
 
-      # 6. Check for Merge Conflicts before pushing
+      # 8. Check for Merge Conflicts before pushing
       - name: Check for Merge Conflicts
         if: env.no_changes == 'false'
         run: |
           echo "Checking for merge conflicts..."
-          # 패치 파일 생성: 메인 리포지토리의 C 디렉토리와 repository_database의 C 디렉토리 간의 차이를 패치 파일로 저장
-          git diff --no-index C repository_database > changes.patch || { echo "Error: Failed to generate patch."; exit 1; }
+          # 1. 패치 파일 생성: 메인 리포지토리의 C 디렉토리와 repository_database의 내용 간의 차이를 패치 파일로 저장
+          git diff --no-index C/ repository_database/ > changes.patch || { echo "Error: Failed to generate patch."; exit 1; }
           
-          # 서브트리 리포지토리 클론 (충돌 확인용)
+          # 2. 서브트리 리포지토리 클론 (충돌 확인용)
           git clone --branch main --depth 1 https://x-access-token:${{ secrets.TT }}@github.com/TestSubtree/subtreeC.git tmp_subtree || { echo "Error: Failed to clone repository B for conflict check."; exit 1; }
           
-          # 패치 적용 시도
+          # 3. C 디렉토리가 없으면 생성
           cd tmp_subtree
+          mkdir -p C
+          
+          # 4. 메인 리포지토리의 C/c 파일을 tmp_subtree/C/에 복사
+          cp ../C/c C/ || { echo "Error: Failed to copy c file to tmp_subtree/C/"; exit 1; }
+          
+          # 5. 패치 적용 시도
           git apply --check ../changes.patch
           if [ $? -ne 0 ]; then
             echo "Merge conflicts detected."
