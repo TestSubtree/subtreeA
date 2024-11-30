@@ -33,7 +33,7 @@ jobs:
         run: |
           set -e
           echo "Cloning repository B..."
-          git clone --branch main --depth 1 https://x-access-token:${{ secrets.SUBTREECTOKEN  }}@github.com/TestSubtree/subtreeC.git repository_database || { echo "Error: Failed to clone repository B."; exit 1; }
+          git clone --branch main --depth 1 https://x-access-token:${{ secrets.TT  }}@github.com/TestSubtree/subtreeC.git repository_database || { echo "Error: Failed to clone repository B."; exit 1; }
           echo "Removing .git folder from repository B..."
           rm -rf repository_database/.git || { echo "Error: Failed to remove .git folder from repository B."; exit 1; }
         shell: bash
@@ -82,7 +82,7 @@ jobs:
           echo "Current branch: $CURRENT_BRANCH"
 
           # 서브트리 리포지토리에 원격 추가
-          git remote add subtreeC https://x-access-token:${{ secrets.SUBTREECTOKEN  }}@github.com/TestSubtree/subtreeC.git
+          git remote add subtreeC https://x-access-token:${{ secrets.TT  }}@github.com/TestSubtree/subtreeC.git
           
           # 현재 브랜치로 푸시
           git subtree push --prefix=C subtreeC "$CURRENT_BRANCH" || { echo "Error: Failed to push changes to subtreeC."; exit 1; }
