@@ -130,14 +130,4 @@ jobs:
                https://api.github.com/repos/TestSubtree/subtreeC/pulls \
                -d "{ \"title\": \"Subtree update from $PR_BRANCH\", \"head\": \"$PR_BRANCH\", \"base\": \"$BASE_BRANCH\", \"body\": \"This pull request contains subtree changes merged into the main branch. Original PR: $PR_URL\" }" \
                -w "%{http_code}" -s)
-
-          # 응답 상태 코드 확인
-          STATUS_CODE="${RESPONSE: -3}"
-
-          # 실패 상태 코드가 있으면 경고 메시지만 출력
-          if [[ "$STATUS_CODE" != "201" ]]; then
-            echo "Warning: Failed to create PR. Status Code: $STATUS_CODE"
-          else
-            echo "Pull request successfully created!"
-          fi
         shell: bash
