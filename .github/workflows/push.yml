@@ -78,14 +78,7 @@ jobs:
           # 2. 서브트리 리포지토리 클론 (충돌 확인용)
           git clone --branch main --depth 1 https://x-access-token:${{ secrets.TT }}@github.com/TestSubtree/subtreeC.git tmp_subtree || { echo "Error: Failed to clone repository B for conflict check."; exit 1; }
           
-          # 3. C 디렉토리가 없으면 생성
-          cd tmp_subtree
-          mkdir -p C
-          
-          # 4. 메인 리포지토리의 C/c 파일을 tmp_subtree/C/에 복사
-          cp ../C/c C/ || { echo "Error: Failed to copy c file to tmp_subtree/C/"; exit 1; }
-          
-          # 5. 패치 적용 시도
+          # 3. 패치 적용 시도
           git apply --check ../changes.patch
           if [ $? -ne 0 ]; then
             echo "Merge conflicts detected."
