@@ -32,8 +32,8 @@ jobs:
       - name: Check subtree changes
         id: check_changes
         run: |
-          set -e
           echo "Checking for subtree changes..."
+          set +e
           git --no-pager diff --exit-code --no-index C repository_database > diff_output.txt
           exit_code=$?
           if [ $exit_code -eq 0 ]; then
