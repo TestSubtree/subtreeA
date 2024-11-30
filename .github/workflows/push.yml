@@ -86,7 +86,7 @@ jobs:
           git branch -D temp_subtree_branch temp_subtreeC_main
         shell: bash
 
-      # 9. Push changes to subtreeC if changes exist
+            # 9. Push changes to subtreeC if changes exist
       - name: Push changes to subtreeC
         if: env.no_changes == 'false'
         run: |
@@ -94,14 +94,17 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          # 현재 PR의 헤드 브랜치 이름을 가져옵니다.
-          CURRENT_BRANCH="${{ github.head_ref }}"
+          # 브랜치 이름을 설정합니다.
+          CURRENT_BRANCH="update-from-subtree-$(date +%s)"
           echo "Current branch: $CURRENT_BRANCH"
+
+          # 새로운 브랜치 생성
+          git checkout -b "$CURRENT_BRANCH"
 
           # 서브트리 리포지토리에 원격 추가
           git remote add subtreeC https://x-access-token:${{ secrets.TT }}@github.com/TestSubtree/subtreeC.git
 
-          # 현재 브랜치로 푸시
+          # 변경사항 푸시
           git subtree push --prefix=C subtreeC "$CURRENT_BRANCH" || { echo "Error: Failed to push changes to subtreeC."; exit 1; }
         shell: bash
 
