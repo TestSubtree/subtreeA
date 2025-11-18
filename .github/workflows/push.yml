@@ -80,6 +80,42 @@ jobs:
           git --no-pager diff --no-index C/ repository_database/ || echo "Error: Failed to display subtree changes."
         shell: bash
 
+              #  Merge conflict 체크 (푸시/PR 생성은 없음)
+      - name: Set Git user for merge
+        if: env.no_changes == 'false'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+        shell: bash
+
+      - name: Check for Merge Conflicts
+        if: env.no_changes == 'false'
+        run: |
+          echo "병합 충돌을 확인하는 중..."
+
+          # C/ 부분만 subtree 브랜치로 분리
+          git subtree split --prefix=C -b temp_subtree_branch
+
+          # subtreeC의 main 브랜치를 가져옴
+          git fetch https://x-access-token:${{ secrets.TT }}@github.com/TestSubtree/subtreeC.git main:temp_subtreeC_main
+
+          # 분리된 서브트리 브랜치로 체크아웃
+          git checkout temp_subtree_branch
+
+          # 병합 시도 (커밋은 만들지 않음)
+          if ! git merge --no-commit --no-ff temp_subtreeC_main; then
+            echo "Merge conflicts detected with subtreeC/main."
+            exit 1
+          fi
+
+          echo "No merge conflicts detected."
+
+          # 원래 브랜치로 돌아가서 임시 브랜치 정리
+          git checkout -
+          git branch -D temp_subtree_branch temp_subtreeC_main
+        shell: bash
+
+
       # 8. Merge conflict 체크 (푸시/PR 생성은 없음)
       - name: Check for Merge Conflicts
         if: env.no_changes == 'false'
