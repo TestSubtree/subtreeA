@@ -3,11 +3,24 @@ name: PR Workflow for main
 on:
   pull_request:
     branches:
-      - main # PR 대상 브랜치가 main일 때만 트리거
-  workflow_dispatch: # 수동으로 워크플로우를 실행할 수 있도록 설정
+      - main          # PR 대상 브랜치가 main일 때
+    types: [opened, reopened, synchronize, ready_for_review]
+  push:
+    branches:
+      - main          # main에 merge 되었을 때 (Tempura에서의 develop 역할)
+  workflow_dispatch:   # 수동 실행
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
 
 jobs:
+  # ============================================================
+  # 1) PR 시점: draft가 아닌 PR 에서 subtreeC 와의 충돌만 체크
+  # ============================================================
   check_subtree_changes:
+    if: github.event_name == 'pull_request' && github.event.pull_request.draft == false
     runs-on: ubuntu-latest
 
     steps:
@@ -36,7 +49,7 @@ jobs:
           echo "Removing .git folder from repository B..."
           rm -rf repository_database/.git || { echo "Error: Failed to remove .git folder from repository B."; exit 1; }
 
-      # 5. Compare subtree changes using git diff with enhanced error handling
+      # 5. Compare subtree changes
       - name: Check subtree changes
         id: check_changes
         run: |
@@ -54,12 +67,12 @@ jobs:
           fi
         shell: bash
 
-      # 6. Print message and exit if no changes
+      # 6. No changes -> 단순 로그
       - name: No changes in subtree
         if: env.no_changes == 'true'
         run: echo "수정사항이 없습니다. 워크플로우를 종료합니다."
 
-      # 7. Show detailed changes if they exist
+      # 7. 변경사항 로그 출력
       - name: Subtree changes details
         if: env.no_changes == 'false'
         run: |
@@ -67,69 +80,251 @@ jobs:
           git --no-pager diff --no-index C/ repository_database/ || echo "Error: Failed to display subtree changes."
         shell: bash
 
-      # 8. Check for Merge Conflicts before pushing
+              #  Merge conflict 체크 (푸시/PR 생성은 없음)
+      - name: Set Git user for merge
+        if: env.no_changes == 'false'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+        shell: bash
+
       - name: Check for Merge Conflicts
         if: env.no_changes == 'false'
         run: |
           echo "병합 충돌을 확인하는 중..."
-          # 서브트리 분할
+
+          # C/ 부분만 subtree 브랜치로 분리
           git subtree split --prefix=C -b temp_subtree_branch
 
-          # subtreeC의 main 브랜치를 직접 URL로 fetch하여 temp_subtreeC_main 브랜치로 저장
+          # subtreeC의 main 브랜치를 가져옴
           git fetch https://x-access-token:${{ secrets.TT }}@github.com/TestSubtree/subtreeC.git main:temp_subtreeC_main
 
-          # 병합 시도 (dry run)
-          git merge --no-commit --no-ff temp_subtreeC_main || { echo "Merge conflicts detected."; exit 1; }
+          # 분리된 서브트리 브랜치로 체크아웃
+          git checkout temp_subtree_branch
+
+          # 병합 시도 (커밋은 만들지 않음)
+          if ! git merge --no-commit --no-ff temp_subtreeC_main; then
+            echo "Merge conflicts detected with subtreeC/main."
+            exit 1
+          fi
+
           echo "No merge conflicts detected."
 
-          # 임시 브랜치 삭제
+          # 원래 브랜치로 돌아가서 임시 브랜치 정리
+          git checkout -
           git branch -D temp_subtree_branch temp_subtreeC_main
         shell: bash
 
-       # 9. Push changes to subtreeC if changes exist
-      - name: Push changes to subtreeC
+
+      # 8. Merge conflict 체크 (푸시/PR 생성은 없음)
+      - name: Check for Merge Conflicts
         if: env.no_changes == 'false'
         run: |
-          echo "Pushing changes to subtreeC..."
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
+          echo "병합 충돌을 확인하는 중..."
 
-          # 새 브랜치 이름을 고유하게 생성
-          CURRENT_BRANCH="${{ github.head_ref }}"
-          echo "Current branch: $CURRENT_BRANCH"
+          # C/ 부분만 subtree 브랜치로 분리
+          git subtree split --prefix=C -b temp_subtree_branch
+
+          # subtreeC의 main 브랜치를 가져옴
+          git fetch https://x-access-token:${{ secrets.TT }}@github.com/TestSubtree/subtreeC.git main:temp_subtreeC_main
+
+          # 분리된 서브트리 브랜치로 체크아웃
+          git checkout temp_subtree_branch
+
+          # 병합 시도 (커밋은 만들지 않음)
+          if ! git merge --no-commit --no-ff temp_subtreeC_main; then
+            echo "Merge conflicts detected with subtreeC/main."
+            exit 1
+          fi
+
+          echo "No merge conflicts detected."
+
+          # 원래 브랜치로 돌아가서 임시 브랜치 정리
+          git checkout -
+          git branch -D temp_subtree_branch temp_subtreeC_main
+        shell: bash
+
+  # ============================================================
+  # 2) merge 후(main에 push 시점): subtreeC에 자동 PR + 양방향 연결
+  # ============================================================
+  sync_subtreeC:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository A
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Remove GitHub Actions Extraheader
+        run: |
+          git config --unset-all http.https://github.com/.extraheader
+        shell: bash
+
+      - name: Clone repository B (subtreeC)
+        run: |
+          echo "Cloning repository B (subtreeC)..."
+          git clone --branch main --depth 1 https://x-access-token:${{ secrets.TT }}@github.com/TestSubtree/subtreeC.git repository_database || { echo "Error: Failed to clone repository B."; exit 1; }
+
+      - name: Remove .git folder from repository B
+        run: |
+          echo "Removing .git folder from repository B..."
+          rm -rf repository_database/.git || { echo "Error: Failed to remove .git folder from repository B."; exit 1; }
+
+      # 1) C/ vs subtreeC 비교해서 변경 있는지 확인
+      - name: Check subtree changes
+        run: |
+          echo "Checking for subtree changes..."
+          set +e
+          git --no-pager diff --exit-code --no-index C/ repository_database/ > diff_output.txt
+          exit_code=$?
+          if [ $exit_code -eq 0 ]; then
+            echo "no_changes=true" >> $GITHUB_ENV
+          elif [ $exit_code -eq 1 ]; then
+            echo "no_changes=false" >> $GITHUB_ENV
+          else
+            echo "Error: git diff command failed with exit code $exit_code"
+            exit 1
+          fi
+        shell: bash
+
+      - name: No changes in subtree
+        if: env.no_changes == 'true'
+        run: echo "수정사항이 없습니다. subtreeC로의 동기화는 수행하지 않습니다."
+
+      # 2) 이 커밋을 도입한 원본 PR 정보 조회 (commit -> pulls)
+      - name: Get origin PR info from commit
+        if: env.no_changes == 'false'
+        run: |
+          REPO="${{ github.repository }}"
+          SHA="${{ github.sha }}"
+
+          echo "Looking up PR for commit: $SHA"
+
+          PRS=$(curl -s \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${REPO}/commits/${SHA}/pulls")
+
+          echo "API response: $PRS"
+
+          ORIGIN_PR_NUMBER=$(echo "$PRS" | jq -r '.[0].number // empty')
+          ORIGIN_PR_URL=$(echo "$PRS" | jq -r '.[0].html_url // empty')
+
+          if [ -z "$ORIGIN_PR_NUMBER" ]; then
+            echo "No associated PR found for commit $SHA"
+          else
+            echo "Found origin PR: #$ORIGIN_PR_NUMBER ($ORIGIN_PR_URL)"
+          fi
+
+          echo "ORIGIN_PR_NUMBER=$ORIGIN_PR_NUMBER" >> $GITHUB_ENV
+          echo "ORIGIN_PR_URL=$ORIGIN_PR_URL" >> $GITHUB_ENV
+        shell: bash
+
+      # 3) subtreeC로 서브트리 push
+      - name: Push subtree to subtreeC
+        if: env.no_changes == 'false'
+        run: |
+          echo "Pushing subtree changes to subtreeC..."
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          # 브랜치 이름: 원본 PR 번호가 있으면 거기서 따고, 없으면 run_number 사용
+          BRANCH_NAME="subtreeC-sync-${{ github.run_number }}"
+          if [ -n "${{ env.ORIGIN_PR_NUMBER }}" ]; then
+            BRANCH_NAME="subtreeC-from-pr-${{ env.ORIGIN_PR_NUMBER }}"
+          fi
+
+          echo "Using branch name: $BRANCH_NAME"
 
           # 새로운 브랜치 생성 및 체크아웃
-          git checkout -b "$CURRENT_BRANCH"
+          git checkout -b "$BRANCH_NAME"
 
           # 서브트리 리포지토리에 원격 추가
           git remote add subtreeC https://x-access-token:${{ secrets.TT }}@github.com/TestSubtree/subtreeC.git
 
-          # 변경사항 푸시
-          git subtree push --prefix=C subtreeC "$CURRENT_BRANCH" || { echo "Error: Failed to push changes to subtreeC."; exit 1; }
-
-          # 푸시 후 브랜치 확인
-          git branch -a # 모든 브랜치 확인
-          git remote show subtreeC # 원격 브랜치 확인
+          # C/ 를 subtreeC 리포의 BRANCH_NAME 브랜치로 push
+          git subtree push --prefix=C subtreeC "$BRANCH_NAME" || { echo "Error: Failed to push changes to subtreeC."; exit 1; }
         shell: bash
 
-            # 10. Create Pull Request in subtreeC repository if push is successful
+      # 4) subtreeC 리포에 PR 생성 (본문에 Origin PR URL 포함)
       - name: Create Pull Request in subtreeC
         if: env.no_changes == 'false'
         run: |
           echo "Creating a Pull Request in subtreeC..."
-          PR_BRANCH="${{ github.head_ref }}"
+
+          BRANCH_NAME="subtreeC-sync-${{ github.run_number }}"
+          if [ -n "${{ env.ORIGIN_PR_NUMBER }}" ]; then
+            BRANCH_NAME="subtreeC-from-pr-${{ env.ORIGIN_PR_NUMBER }}"
+          fi
+
           BASE_BRANCH="main"
-          
-          # 현재 레포지토리의 PR URL 생성
-          REPO="${{ github.repository }}"
-          PR_URL="https://github.com/${REPO}/pull/${{ github.event.pull_request.number }}"
-          
-          # PR 생성 요청
-          RESPONSE=$(curl -X POST -H "Authorization: token ${{ secrets.TT }}" \
+          ORIGIN_PR_NUMBER="${{ env.ORIGIN_PR_NUMBER }}"
+          ORIGIN_PR_URL="${{ env.ORIGIN_PR_URL }}"
+
+          TITLE="Subtree update from main"
+          if [ -n "$ORIGIN_PR_NUMBER" ]; then
+            TITLE="Subtree update from PR #$ORIGIN_PR_NUMBER"
+          fi
+
+          BODY="This pull request contains subtree C changes synchronized from repository A."
+          if [ -n "$ORIGIN_PR_URL" ]; then
+            BODY="${BODY}\nOriginal PR: ${ORIGIN_PR_URL}"
+          fi
+
+          RESPONSE=$(curl -s -X POST \
+               -H "Authorization: token ${{ secrets.TT }}" \
                -H "Accept: application/vnd.github.v3+json" \
                https://api.github.com/repos/TestSubtree/subtreeC/pulls \
-               -d "{ \"title\": \"Subtree update from $PR_BRANCH\", \"head\": \"$PR_BRANCH\", \"base\": \"$BASE_BRANCH\", \"body\": \"This pull request contains subtree changes merged into the main branch. Original PR: $PR_URL\" }" \
-               -w "%{http_code}" -s)
+               -d @- <<EOF
+          {
+            "title": "$TITLE",
+            "head": "$BRANCH_NAME",
+            "base": "$BASE_BRANCH",
+            "body": "$BODY"
+          }
+          EOF
+          )
 
-          echo "Response: $RESPONSE"
+          echo "subtreeC PR response: $RESPONSE"
+
+          DB_PR_URL=$(echo "$RESPONSE" | jq -r '.html_url // empty')
+          if [ -z "$DB_PR_URL" ] || [ "$DB_PR_URL" = "null" ]; then
+            echo "Failed to get subtreeC PR URL."
+          else
+            echo "DB_PR_URL=$DB_PR_URL" >> $GITHUB_ENV
+            echo "Created subtreeC PR: $DB_PR_URL"
+          fi
+        shell: bash
+
+      # 5) 원본 PR의 본문에 subtreeC PR 링크 append (양방향 연결 완성)
+      - name: Update origin PR body with subtreeC PR link
+        if: env.no_changes == 'false' && env.ORIGIN_PR_NUMBER != '' && env.DB_PR_URL != ''
+        run: |
+          REPO="${{ github.repository }}"
+          ORIGIN_PR_NUMBER="${{ env.ORIGIN_PR_NUMBER }}"
+          DB_PR_URL="${{ env.DB_PR_URL }}"
+
+          echo "Updating origin PR #$ORIGIN_PR_NUMBER with subtreeC PR link: $DB_PR_URL"
+
+          # 기존 PR 정보 가져오기
+          ORIGINAL=$(curl -s \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            "https://api.github.com/repos/${REPO}/pulls/${ORIGIN_PR_NUMBER}")
+
+          ORIGINAL_BODY=$(echo "$ORIGINAL" | jq -r '.body // ""')
+
+          NEW_BODY="${ORIGINAL_BODY}\n\n---\n### Linked subtreeC auto PR\n${DB_PR_URL}"
+
+          # PR 본문 업데이트
+          curl -s -X PATCH \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            "https://api.github.com/repos/${REPO}/pulls/${ORIGIN_PR_NUMBER}" \
+            -d "$(jq -n --arg body "$NEW_BODY" '{body: $body}')"
+
+          echo "Origin PR body updated."
         shell: bash
