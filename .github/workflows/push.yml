@@ -219,7 +219,7 @@ jobs:
           git checkout -b "$BR"
 
           git remote add subtreeC https://x-access-token:${{ secrets.TT }}@github.com/TestSubtree/subtreeC.git
-          git subtree push --prefix=C subtreeC "$BRANCH_NAME" || { echo "Error: Failed to push changes to subtreeC."; exit 1; }
+          git subtree push --prefix=C subtreeC "$BR" || { echo "Error: Failed to push changes to subtreeC."; exit 1; }
           if [ $? -ne 0 ]; then
             echo "❌ 푸쉬 실패"
             exit 1
