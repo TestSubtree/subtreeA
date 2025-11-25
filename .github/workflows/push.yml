@@ -33,6 +33,11 @@ jobs:
         run: git config --unset-all http.https://github.com/.extraheader
         shell: bash
 
+      - name: setup git user
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+
       - name: clone subtreeC
         run: |
           git clone --branch main --depth 1 https://x-access-token:${{ secrets.TT }}@github.com/TestSubtree/subtreeC.git repository_database || { echo "Error: Failed to clone repository B."; exit 1; }
@@ -112,6 +117,10 @@ jobs:
         run: |
           git clone --branch main --depth 1 https://x-access-token:${{ secrets.TT }}@github.com/TestSubtree/subtreeC.git repository_database || { echo "Error: Failed to clone repository B."; exit 1; }
 
+      - name: setup git user
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
 
       - name: remove .git folder
         run: rm -rf repository_database/.git
